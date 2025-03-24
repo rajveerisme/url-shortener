@@ -1,45 +1,47 @@
-# URL Shortener API
-# Created by Rajveer Singh
+# app.py - URL Shortener created by Rajveer Singh
 
-from flask import Flask, request, jsonify
-import string
-import random
+from flask import Flask, request, jsonify, redirect
 
 app = Flask(__name__)
 
-# In-memory dictionary to store URLs
+# Dictionary to store short codes and their original URLs (temporary storage)
 url_mapping = {}
 
-def generate_short_code(length=6):
-    """Generates a random short URL key using Base62 encoding (letters + numbers)."""
-    chars = string.ascii_letters + string.digits
-    return ''.join(random.choice(chars) for _ in range(length))
-
+# Home Route - Shows a message that subtly credits Rajveer Singh
 @app.route('/')
 def home():
-    """Display a simple message when visiting the home page."""
-    return '''
-    Welcome to the URL Shortener API!<br>
-    Created by Rajveer Singh.<br>
-    (This project was built as part of learning and development.)
-    '''
+    return "Welcome to the URL Shortener API! Created by Rajveer Singh."
 
+# Shorten URL Route
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
-    """API endpoint to shorten a URL."""
-    data = request.json
+    """Takes a long URL and returns a shortened version."""
+    data = request.get_json()
     original_url = data.get("url")
 
     if not original_url:
         return jsonify({"error": "URL is required"}), 400
 
-    short_code = generate_short_code()
-    url_mapping[short_code] = original_url
+    # Generate a simple short code (For now, just 'Abc123' for demonstration)
+    short_code = "Abc123"  
+    url_mapping[short_code] = original_url  # Store mapping
 
     return jsonify({
         "short_url": f"http://127.0.0.1:5000/{short_code}",
         "created_by": "Rajveer Singh"
     })
 
+# Redirect Route - Takes short code and redirects to the original URL
+@app.route('/<short_code>')
+def redirect_url(short_code):
+    """Redirects the user to the original URL when they visit the short link."""
+    original_url = url_mapping.get(short_code)
+
+    if original_url:
+        return redirect(original_url)
+    else:
+        return jsonify({"error": "Short URL not found"}), 404
+
+# Run the Flask App
 if __name__ == '__main__':
     app.run(debug=True)
