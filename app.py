@@ -1,57 +1,76 @@
-# app.py - URL Shortener created by Rajveer Singh
-
+import os
+import json
 import random
 import string
 from flask import Flask, request, jsonify, redirect
 
 app = Flask(__name__)
 
-# Dictionary to store short codes and their original URLs (temporary storage)
-url_mapping = {}
+# Load existing URL mappings from a JSON file
+DATA_FILE = "data.json"
 
-# Home Route - Shows a message that subtly credits Rajveer Singh
+def load_data():
+    """Load URL mappings from data.json file"""
+    if os.path.exists(DATA_FILE):
+        with open(DATA_FILE, "r") as file:
+            try:
+                return json.load(file)
+            except json.JSONDecodeError:
+                return {}  # Return an empty dictionary if file is empty or corrupted
+    return {}
+
+def save_data(data):
+    """Save URL mappings to data.json file"""
+    with open(DATA_FILE, "w") as file:
+        json.dump(data, file)
+
+# Load existing data
+url_mapping = load_data()
+
+def generate_short_code(length=6):
+    """Generate a random short code of given length"""
+    characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
+    return ''.join(random.choice(characters) for _ in range(length))
+
 @app.route('/')
 def home():
-    return "Welcome to the URL Shortener API! Created by Rajveer Singh."
+    """Home route with a subtle attribution"""
+    return "Welcome to the URL Shortener API!<br>Created by Rajveer Singh."
 
-# Function to generate a random short code
-def generate_short_code(length=6):
-    """Generates a random 6-character short code"""
-    characters = string.ascii_letters + string.digits  # a-z, A-Z, 0-9
-    return ''.join(random.choices(characters, k=length))
-
-# Shorten URL Route
 @app.route('/shorten', methods=['POST'])
 def shorten_url():
-    """Takes a long URL and returns a shortened version."""
+    """Shorten a URL and return the same short code if already shortened"""
     data = request.get_json()
     original_url = data.get("url")
 
     if not original_url:
         return jsonify({"error": "URL is required"}), 400
 
-    # Generate a unique short code
+    # Check if the URL was already shortened
+    for short_code, url in url_mapping.items():
+        if url == original_url:
+            return jsonify({
+                "short_url": f"http://127.0.0.1:5000/{short_code}",
+                "created_by": "Rajveer Singh"
+            })
+
+    # Generate a unique short code for a new URL
     short_code = generate_short_code()
-    
-    # Store mapping
-    url_mapping[short_code] = original_url  
+    url_mapping[short_code] = original_url
+    save_data(url_mapping)
 
     return jsonify({
         "short_url": f"http://127.0.0.1:5000/{short_code}",
         "created_by": "Rajveer Singh"
     })
 
-# Redirect Route - Takes short code and redirects to the original URL
 @app.route('/<short_code>')
 def redirect_url(short_code):
-    """Redirects the user to the original URL when they visit the short link."""
+    """Redirect a short URL to the original URL"""
     original_url = url_mapping.get(short_code)
-
     if original_url:
         return redirect(original_url)
-    else:
-        return jsonify({"error": "Short URL not found"}), 404
+    return jsonify({"error": "Short URL not found"}), 404
 
-# Run the Flask App
 if __name__ == '__main__':
     app.run(debug=True)
